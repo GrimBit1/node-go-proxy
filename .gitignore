@@ -1,0 +1,4 @@
+.env
+user.json
+node_modules
+tmp
