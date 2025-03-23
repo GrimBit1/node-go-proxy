@@ -75,9 +75,9 @@ func main() {
 				"message": "Request timeout",
 			})
 		case <-time.After(5 * time.Second):
-			fmt.Println("After 2 secs")
+			fmt.Println("After 5 secs")
 			return c.JSON(http.StatusOK, map[string]string{
-				"message": "After 2 secs",
+				"message": "After 5 secs",
 			})
 
 		}

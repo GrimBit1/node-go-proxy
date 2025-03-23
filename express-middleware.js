@@ -40,8 +40,8 @@ export const expressMiddlewareProxy = ({
 
     creq.on("error", (e) => {
       console.log(e);
-      if (creq.destroyed) {
-        console.log("Request closed");
+      if (e === "Response stream closed") {
+        console.log("Original request closed");
         return;
       }
       console.error("Proxy request error:", e.message);
@@ -49,16 +49,8 @@ export const expressMiddlewareProxy = ({
       ores.end(e.message);
     });
 
-    // 🚀 **Key Fix: Ensure request closes only after response is finished**
-    oreq.on("close", () => {
-      console.log("Original request closed");
-      // creq.destroy(); // Instead of destroy(), let it finish properly
-    });
-
     ores.on("close", () => {
-      console.log("Response stream closed");
-      creq.emit("close");
-      creq.destroy();
+      creq.destroy("Response stream closed");
     });
   };
 };
