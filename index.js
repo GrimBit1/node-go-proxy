@@ -21,9 +21,11 @@ app.get(
     path: "/temp",
   })
 );
+app.get("/wait", expressMiddlewareProxy({}));
+
 app.get("/file", (req, res) => {
-  console.log(import.meta.url.slice(7,-8)+'user.json');
-  return res.sendFile(import.meta.url.slice(7,-8)+'user.json');
+  console.log(import.meta.url.slice(7, -8) + "user.json");
+  return res.sendFile(import.meta.url.slice(7, -8) + "user.json");
 });
 
 app.listen(3000, (err) => {
