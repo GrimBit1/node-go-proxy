@@ -31,7 +31,17 @@ export const expressMiddlewareProxy = ({
       });
     });
 
-    oreq.pipe(creq);
+    // Check if there's a request body to send
+    if (oreq.body) {
+      creq.write(JSON.stringify(oreq.body));
+    } else {
+      // Fall back to pipe for stream data if available
+      if (oreq.readable) {
+        oreq.pipe(creq);
+      }
+    }
+
+    creq.end();
 
     oreq.on("error", (err) => {
       console.error("Original request error:", err);
