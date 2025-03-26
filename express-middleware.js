@@ -50,13 +50,13 @@ export const expressMiddlewareProxy = ({
 
     creq.on("error", (e) => {
       console.log(e);
-      if (e === "Response stream closed") {
+      if (e.message === "Response stream closed") {
         console.log("Original request closed");
         return;
       }
-      console.error("Proxy request error:", e.message);
+      console.error("Proxy request error:", e.message ?? e.errors);
       ores.writeHead(500);
-      ores.end(e.message);
+      ores.end(e.message || e.errors.toString());
     });
 
     ores.on("close", () => {
