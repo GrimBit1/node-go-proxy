@@ -1,5 +1,3 @@
-import { request } from "http";
-
 const { request } = require('http');
 
 const FormData = require('form-data');
@@ -71,7 +69,7 @@ const convertMulterFilesToArray = (files) => {
 
 }
 
-const expressMiddlewareProxy = ({ host, port, path, method, headers, shouldImplementUserId } = {}) => {
+const expressMiddlewareProxy = ({ host, port, path, method, headers, shouldImplementUserId, } = {}, callback) => {
   return (oreq, ores) => {
     const reqOptions = {
       host: host ?? process.env.GO_HOST ?? 'localhost',
@@ -115,10 +113,21 @@ const expressMiddlewareProxy = ({ host, port, path, method, headers, shouldImple
 
     const creq = request(reqOptions, (pres) => {
       ores.writeHead(pres.statusCode ?? 500, pres.headers);
-      pres.pipe(ores);
+      let chunks = [];
+      if (!callback) {
+        pres.pipe(ores);
+      } else {
+        pres.on('data', (chunk) => {
+          chunks.push(chunk);
+        });
+      }
 
-      pres.on('end', () => {
+      pres.on('end', async () => {
         console.log('Proxied response ended');
+        if (callback) {
+          ores.write(chunks.toString());
+          await callback?.(oreq, ores, chunks.toString());
+        }
         ores.end();
       });
 

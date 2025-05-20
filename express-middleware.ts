@@ -70,7 +70,10 @@ export const convertMulterFilesToArray = (files) => {
   return filesArray;
 };
 
-export const expressMiddlewareProxy = ({ host, port, path, method, headers }) => {
+export const expressMiddlewareProxy = (
+  { host, port, path, method, headers },
+  callback?: Function
+) => {
   return (oreq: CustomRequest, ores: Response) => {
     const reqOptions: RequestOptions = {
       host: host ?? process.env.GO_HOST ?? "localhost",
@@ -110,10 +113,22 @@ export const expressMiddlewareProxy = ({ host, port, path, method, headers }) =>
 
     const creq = request(reqOptions, (pres) => {
       ores.writeHead(pres.statusCode ?? 500, pres.headers);
-      pres.pipe(ores);
 
-      pres.on("end", () => {
+      let chunks: any[] = [];
+      if (!callback) {
+        pres.pipe(ores);
+      } else {
+        pres.on("data", (chunk) => {
+          chunks.push(chunk);
+        });
+      }
+
+      pres.on("end", async () => {
         console.log("Proxied response ended");
+        if (callback) {
+          ores.write(chunks.toString());
+          await callback?.(oreq, ores, chunks.toString());
+        }
         ores.end();
       });
 
@@ -152,4 +167,3 @@ export const expressMiddlewareProxy = ({ host, port, path, method, headers }) =>
     });
   };
 };
-
