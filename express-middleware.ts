@@ -1,10 +1,10 @@
 import { Request, Response } from "express";
-import { request, RequestOptions } from "http";
+import { OutgoingHttpHeaders, request, RequestOptions } from "http";
 import { UploadedFile } from "express-fileupload";
 
 import FormData from "form-data";
 import { Readable } from "stream";
-
+import axios from 'axios'
 /**
  * Rebuilds form-data from Express request
  * @param {Request} oreq - Express request object
@@ -16,6 +16,14 @@ export interface CustomRequest extends Request {
     [formField: string]: UploadedFile | UploadedFile[];
   };
 }
+
+type ProxyOptions = {
+  host?: string;
+  port?: number;
+  path?: string;
+  method?: string;
+  headers?: Record<string, string>;
+};
 
 export const rebuildFormDataFromRequest = (oreq: CustomRequest) => {
   const form = new FormData();
@@ -165,5 +173,49 @@ export const expressMiddlewareProxy = (
     ores.on("close", () => {
       creq.destroy(new Error("Response stream closed"));
     });
+  };
+};
+
+export const expressMiddlewareProxyAxios = ({ host, port, path, method, headers }: ProxyOptions = {}) => {
+  return async (oreq: Request, ores: Response) => {
+    const targetHost = host ?? process.env.GO_HOST ?? '127.0.0.1';
+    const targetPort = port ?? process.env.GO_PORT ?? 80;
+    const targetPath = path ?? oreq.originalUrl;
+    const targetMethod = method ?? oreq.method;
+    const targetUrl = `http://${targetHost}:${targetPort}${targetPath}`;
+
+    // Merge headers from request and options
+    const requestHeaders = { ...oreq.headers, ...(headers ?? {}) };
+
+    // If there's a body, remove some headers
+    if (oreq.body) {
+      delete requestHeaders['content-length'];
+    }
+
+    const axiosConfig = {
+      url: targetUrl,
+      method: targetMethod as any,
+      headers: requestHeaders,
+      responseType: 'stream' as const,
+      data: oreq.body ? oreq.body : undefined,
+    };
+
+    try {
+      const response = await axios.request(axiosConfig);
+      ores.writeHead(response.status, undefined, response.headers as OutgoingHttpHeaders);
+      // Pipe the response stream from Axios to the express response
+      response.data.pipe(ores);
+      response.data.on('end', () => {
+        ores.end();
+      });
+      response.data.on('error', (err: Error) => {
+        console.error('Proxied response error:', err);
+        ores.end();
+      });
+    } catch (err: any) {
+      console.error('Proxy request error:', err.message || err);
+      ores.writeHead(500);
+      ores.end(err.message || 'Error in proxy request');
+    }
   };
 };
